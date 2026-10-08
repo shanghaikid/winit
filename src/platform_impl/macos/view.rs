@@ -441,6 +441,15 @@ declare_class!(
         #[method(keyDown:)]
         fn key_down(&self, event: &NSEvent) {
             trace_scope!("keyDown:");
+
+            // Some IMEs commit outside keyDown, e.g. Baidu Pinyin on Shift release.
+            // Such a commit belongs to an earlier event and must not suppress this key.
+            // Commits from interpretKeyEvents below still suppress their triggering key.
+            if self.ivars().ime_state.get() == ImeState::Committed {
+                *self.ivars().marked_text.borrow_mut() = NSMutableAttributedString::new();
+                self.ivars().ime_state.set(ImeState::Ground);
+            }
+
             {
                 let mut prev_input_source = self.ivars().input_source.borrow_mut();
                 let current_input_source = self.current_input_source();
